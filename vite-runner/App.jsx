@@ -1,12 +1,12 @@
 import React from '../core/React'
 
-function App() {
-  return (
-    <div id='wyq'>
-      <span>lover</span>
-      <span>wyqqq</span>
+const App = (
+  <div id='wyq'>
+    <div>
+      <span>wyq</span>
     </div>
-  )
-}
+    <div>lover</div>
+  </div>
+)
 
 export default App
