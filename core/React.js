@@ -3,11 +3,12 @@ function createElement(type, props, ...children) {
     type,
     props: {
       ...props,
-      children: children.map(child =>
-        typeof child === 'string'
+      children: children.map(child => {
+        const isTextNode = typeof child === 'string' || typeof child === 'number'
+        return isTextNode
           ? createTextNode(child)
           : child
-      )
+      })
     }
   }
 }
@@ -22,6 +23,7 @@ function createTextNode(text) {
   }
 }
 
+let root = null
 function render(el, container) {
   nextUnitOfWork = {
     dom: container,
@@ -29,6 +31,7 @@ function render(el, container) {
       children: [el]
     }
   }
+  root = nextUnitOfWork
 }
 
 function createDom(fiber) {
@@ -37,7 +40,7 @@ function createDom(fiber) {
     : document.createElement(fiber.type)
 }
 
-function handleProps(dom, fiber) {
+function updateProps(dom, fiber) {
   for (const [key, value] of Object.entries(fiber.props)) {
     if (key !== 'children') {
       dom[key] = value
@@ -45,15 +48,8 @@ function handleProps(dom, fiber) {
   }
 }
 
-function performUnitOfWork(fiber) {
-  if (!fiber.dom) {
-    const dom = fiber.dom = createDom(fiber)
-    fiber.parent.dom.append(dom)
-    handleProps(dom, fiber)
-  }
-
+function initChildren(fiber, children) {
   let prevFiber = null
-  const children = fiber.props.children
   children.forEach((child, index) => {
     const newFiber = {
       type: child.type,
@@ -70,15 +66,60 @@ function performUnitOfWork(fiber) {
     }
     prevFiber = newFiber
   })
+}
 
-  function traverseParent(fiber) {
-    if (!fiber) return null
+function updateFunctionComponent(fiber) {
+  const children = [fiber.type(fiber.props)]
+  initChildren(fiber, children)
+}
 
-    return fiber.parent?.subling || traverseParent(fiber.parent)
+function updateHostComponent(fiber) {
+  if (!fiber.dom) {
+    const dom = fiber.dom = createDom(fiber)
+    updateProps(dom, fiber)
   }
 
-  // 返回下一个fiber的优先级。先child，后subing，后叔叔
-  return fiber.child || fiber.subling || fiber.parent.subling || traverseParent(fiber.parent)
+  const children = fiber.props.children
+  initChildren(fiber, children)
+}
+
+function performUnitOfWork(fiber) {
+  const isFunctionComponent = typeof fiber.type === 'function'
+  if (isFunctionComponent) {
+    updateFunctionComponent(fiber)
+  } else {
+    updateHostComponent(fiber)
+  }
+
+  if (fiber.child) {
+    return fiber.child
+  }
+
+  let nextFiber = fiber
+  while (nextFiber) {
+    if (nextFiber.subling) return nextFiber.subling
+    nextFiber = nextFiber.parent
+  }
+}
+
+function commitRoot() {
+  commitWork(root.child)
+  root = null
+}
+
+function commitWork(fiber) {
+  if (!fiber) return
+  let parentFiber = fiber.parent
+  while (!parentFiber.dom) {
+    parentFiber = parentFiber.parent
+  }
+
+  if (fiber.dom) {
+    parentFiber.dom.append(fiber.dom)
+  }
+
+  commitWork(fiber.child)
+  commitWork(fiber.subling)
 }
 
 let nextUnitOfWork = null
@@ -89,6 +130,11 @@ function workLoop(deadline) {
 
     shouldYeild = deadline.timeRemaining() < 10
   }
+
+  if (!nextUnitOfWork && root) {
+    commitRoot()
+  }
+
   requestIdleCallback(workLoop)
 }
 

@@ -1,12 +1,16 @@
 import React from '../core/React'
 
-const App = (
-  <div id='wyq'>
+function Counter({ num }) {
+  return <h1>Count:{num}</h1>
+}
+
+function App() {
+  return (
     <div>
-      <span>wyq</span>
+      <div>love wyq</div>
+      <Counter num={86} />
     </div>
-    <div>lover</div>
-  </div>
-)
+  )
+}
 
 export default App
