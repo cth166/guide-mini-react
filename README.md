@@ -1,15 +1,34 @@
-# Day4
+# Day5
 
-今天太坎坷了。大体流程了解了一遍，写的时候碰到好多问题。 
+今天的难点主要是第四个视频，写的时候又碰到好多问题。 
 
-1. 找oldFiber的时候，用的fiber.parent.alternate.child。但实际fiber直接就是上一层节点，直接fiber.alternate.child就好了。 
-2. 判断isSameType，一开始用的fiber.type ===   oldFiber.type。应该是child.type === oldFiber.type。
-3. 如果isSameType为true，这时候生成的fiber.dom应该是alternate.dom。应该用老dom而不是null了。
-4. 创建了两种effectTag不同的fiber，然后不知道在哪用这个类型。在commitWork处理每个小任务的时候tag是update就更新 props，是placement就dom.append。
+1. 在优化的时候，使用闭包获取当前组件。在updateFunctionComponent时，通过全局变量wipFiber来保存当前的函数Fiber。后面在update函数里创建一个临时变量currentFiber来转存wipFiber，然后返回一个函数。为什么能拿到当前的组件Fiber呢？
 
+    是因为调用函数Fiber.type()的时候，update里currentFiber保存的就是当前的函数fiber。闭包相当于一个快照。updater就知道用哪个函数fiber当成wipRoot，从而实现渲染单个组件，优化性能。感觉和vue里的getCurrentInstance类似。
 
+   ```js
+   function Bar() {
+     console.log('Bar render')
+     const updater = React.update()
+     function handleClick() {
+       countBar++
+       updater()
+     }
+   
+     return (
+       <div>
+         <h3>{countBar}</h3>
+         <button onClick={handleClick}>+1</button>
+       </div>
+     )
+   }
+   ```
 
-今天状态：😡我是sbbbbb
+2. 最后找fiber结束点的时候。看看当前马上要执行的任务type和wipRoot.sibling.type是否一致。一致就停下了，因为兄弟组件不用更新。我一开始判断的是wipFiber.sibling.type，导致最后一个组件不渲染。
+
+3. 难点主要是这节课概念有点多，而且改来改去，最后把currentRoot给改没了，优化成了wipRoot。引入了这个概念最后又优化了这个概念，确实不需要每次都从root开始，而是从当前组件的Fiber开始。
+
+今天状态：😟难啊
 
 经验 + 10
 

@@ -25,7 +25,7 @@ function createTextNode(text) {
 
 // work in progress -> wip
 let wipRoot = null
-let currentRoot = null
+let wipFiber = null //用来部分更新fiber树，来存函数fiber的快照
 function render(el, container) {
   wipRoot = {
     dom: container,
@@ -37,12 +37,15 @@ function render(el, container) {
 }
 
 function update() {
-  wipRoot = {
-    dom: currentRoot.container,
-    props: currentRoot.props,
-    alternate: currentRoot
+  const currentFiber = wipFiber
+
+  return () => {
+    wipRoot = {
+      ...currentFiber,
+      alternate: currentFiber
+    }
+    nextUnitOfWork = wipRoot
   }
-  nextUnitOfWork = wipRoot
 }
 
 function createDom(fiber) {
@@ -77,10 +80,13 @@ function updateProps(dom, newProps, oldProps) {
   })
 }
 
+
+const deletions = []
 function reconcileChildren(fiber, children) {
   let oldFiber = fiber.alternate?.child
   let prevFiber = null
-  children.forEach((child, index) => {
+  let hasChild = false
+  children.forEach((child) => {
     const isSameType = oldFiber && child.type === oldFiber.type
     let newFiber
     if (isSameType) {
@@ -95,29 +101,42 @@ function reconcileChildren(fiber, children) {
         effectTag: 'update'
       }
     } else {
-      newFiber = {
-        type: child.type,
-        props: child.props,
-        child: null,
-        parent: fiber,
-        sibling: null,
-        dom: null,
-        effectTag: 'placement'
+      oldFiber && deletions.push(oldFiber)
+      if (child) {
+        newFiber = {
+          type: child.type,
+          props: child.props,
+          child: null,
+          parent: fiber,
+          sibling: null,
+          dom: null,
+          effectTag: 'placement'
+        }
       }
     }
 
-    oldFiber = oldFiber?.sibling
+    if (newFiber) {
+      oldFiber = oldFiber?.sibling
 
-    if (index === 0) {
-      fiber.child = newFiber
-    } else {
-      prevFiber.sibling = newFiber
+      if (!hasChild) {
+        fiber.child = newFiber
+        hasChild = true
+      } else {
+        prevFiber.sibling = newFiber
+      }
+
+      prevFiber = newFiber
     }
-    prevFiber = newFiber
   })
+
+  while (oldFiber) {
+    deletions.push(oldFiber)
+    oldFiber = oldFiber?.sibling
+  }
 }
 
 function updateFunctionComponent(fiber) {
+  wipFiber = fiber
   const children = [fiber.type(fiber.props)]
   reconcileChildren(fiber, children)
 }
@@ -151,10 +170,21 @@ function performUnitOfWork(fiber) {
   }
 }
 
+function commitDeletions(fiber) {
+  let currentFiber = fiber
+
+  while (!currentFiber.dom) {
+    currentFiber = currentFiber.child
+  }
+
+  currentFiber.dom.remove()
+}
+
 function commitRoot() {
+  deletions.forEach(commitDeletions)
   commitWork(wipRoot.child)
-  currentRoot = wipRoot
   wipRoot = null
+  deletions.length = 0
 }
 
 function commitWork(fiber) {
@@ -169,7 +199,11 @@ function commitWork(fiber) {
       parentFiber.dom.append(fiber.dom)
     }
   } else if (fiber.effectTag === 'update') {
-    updateProps(fiber.dom, fiber.props, fiber.alternate.props)
+    if (typeof fiber.type !== 'function') {
+      updateProps(fiber.dom, fiber.props, fiber.alternate.props)
+    } else {
+      updateProps(fiber.child.dom, fiber.props, fiber.alternate.props)
+    }
   }
 
   commitWork(fiber.child)
@@ -181,6 +215,10 @@ function workLoop(deadline) {
   let shouldYeild = false
   while (!shouldYeild && nextUnitOfWork) {
     nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
+
+    if (wipRoot?.sibling?.type === nextUnitOfWork?.type) {
+      nextUnitOfWork = null
+    }
 
     shouldYeild = deadline.timeRemaining() < 10
   }
