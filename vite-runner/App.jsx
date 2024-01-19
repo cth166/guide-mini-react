@@ -1,53 +1,22 @@
 import React from '../core/React'
 
-let countFoo = 1
-function Foo() {
-  console.log('Foo render')
-  const updater = React.update()
-  function handleClick() {
-    countFoo++
-    updater()
-  }
-
-  return (
-    <div>
-      <h3>{countFoo}</h3>
-      <button onClick={handleClick}>+1</button>
-    </div>
-  )
-}
-let countBar = 1
-function Bar() {
-  console.log('Bar render')
-  const updater = React.update()
-  function handleClick() {
-    countBar++
-    updater()
-  }
-
-  return (
-    <div>
-      <h3>{countBar}</h3>
-      <button onClick={handleClick}>+1</button>
-    </div>
-  )
-}
-
-let countApp = 1
 function App() {
-  console.log('App render')
-  const updater = React.update()
+  console.log('app render')
+  const [count, setCount] = React.useState(10)
+  const [name, setName] = React.useState('wyq')
+
   function handleClick() {
-    countApp++
-    updater()
+    // setCount(c => c + 1)
+    // setName(n => n + ' -love')
+    setName('wyq')
   }
 
   return (
     <div>
-      <h1>{countApp}</h1>
+      <h1>App</h1>
+      <h2>{count}</h2>
+      <h2>{name}</h2>
       <button onClick={handleClick}>+1</button>
-      <Foo />
-      <Bar />
     </div>
   )
 }
